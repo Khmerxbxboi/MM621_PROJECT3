@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sodaro • Crime Intelligence Map</title>
+
+  <!-- p5.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #020617;
+      --bg-soft: #030712;
+      --card: #020617;
+      --accent: #06b6ff;
+      --accent-soft: #38bdf8;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left,#111827,#020617 55%);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: minmax(480px, 65%) minmax(320px, 35%);
+      min-height: 100vh;
+    }
+
+    #map-holder {
+      position: relative;
+      padding: 16px;
+      background: linear-gradient(135deg,#020617,#020617 40%,#0f172a 100%);
+      overflow: hidden;
+    }
+
+    /* right side panel */
+    #side {
+      background: var(--bg-soft);
+      border-left: 1px solid #1f2937;
+      padding: 18px 18px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    header.topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+
+    .left-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-chip {
+      width: 40px;
+      height: 40px;
+      border-radius: 14px;
+      background: radial-gradient(circle at 30% 0%,rgba(56,189,248,0.4),rgba(15,23,42,1));
+      border: 1px solid rgba(56,189,248,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      box-shadow: 0 15px 35px rgba(15,23,42,0.9);
+    }
+
+    .logo-chip img {
+      width: 70%;
+      height: 70%;
+      object-fit: contain;
+      filter: drop-shadow(0 0 6px rgba(56,189,248,0.7));
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .brand-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+
+    .brand-pill {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(148,163,184,0.12);
+      color: var(--muted);
+    }
+
+    .crumb {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .status-line {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .right-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      position: relative;
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 0 0 rgba(56,189,248,0.7);
+      animation: pulse 1.8s infinite;
+    }
+
+    /* profile dropdown */
+    .profile-wrapper {
+      position: relative;
+    }
+
+    .profile-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.85);
+      border: 1px solid rgba(31,41,55,0.9);
+      cursor: pointer;
+      transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .profile-toggle:hover {
+      border-color: rgba(56,189,248,0.8);
+      background: rgba(15,23,42,1);
+      box-shadow: 0 18px 40px rgba(15,23,42,0.9);
+    }
+
+    .avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 0%,rgba(56,189,248,0.6),rgba(15,23,42,1));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: #e5e7eb;
+      box-shadow: 0 0 0 1px rgba(15,23,42,1), 0 0 0 2px rgba(56,189,248,0.5);
+    }
+
+    .profile-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .profile-name {
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .profile-role {
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .caret {
+      font-size: 10px;
+      color: var(--muted);
+      margin-left: 2px;
+    }
+
+    .profile-menu {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      transform: translateY(8px);
+      background: #020617;
+      border-radius: 12px;
+      border: 1px solid rgba(31,41,55,0.95);
+      min-width: 180px;
+      box-shadow: 0 24px 55px rgba(15,23,42,0.98);
+      padding: 6px 0;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.16s ease, transform 0.16s ease;
+      z-index: 40;
+    }
+
+    .profile-menu.open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(4px);
+    }
+
+    .profile-menu-item {
+      padding: 7px 12px;
+      font-size: 12px;
+      color: #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      cursor: pointer;
+      transition: background 0.12s ease, color 0.12s ease;
+    }
+
+    .profile-menu-item span.label {
+      opacity: 0.9;
+    }
+
+    .profile-menu-item span.tag {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: rgba(15,23,42,1);
+      color: var(--muted);
+    }
+
+    .profile-menu-item:hover {
+      background: rgba(15,23,42,0.95);
+      color: #f9fafb;
+    }
+
+    .profile-menu-divider {
+      height: 1px;
+      margin: 4px 8px;
+      background: linear-gradient(90deg,rgba(15,23,42,0),rgba(55,65,81,0.8),rgba(15,23,42,0));
+    }
+
+    .profile-menu-item.danger:hover {
+      background: rgba(127,29,29,0.9);
+    }
+
+    .profile-menu-item.danger span.label {
+      color: #fecaca;
+    }
+
+    .card {
+      background: radial-gradient(circle at top left,#020617,#020617 50%,#020617 100%);
+      border-radius: 16px;
+      padding: 12px 14px;
+      box-shadow: 0 24px 50px rgba(15,23,42,0.85);
+      border: 1px solid rgba(148,163,184,0.16);
+      position: relative;
+      overflow: hidden;
+      animation: fadeUp 0.35s ease-out;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      background: radial-gradient(circle at 10% 0%,rgba(56,189,248,0.08),transparent 40%),
+                  radial-gradient(circle at 100% 40%,rgba(8,47,73,0.3),transparent 55%);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    .card h2 {
+      margin: 0 0 4px;
+      font-size: 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .card small {
+      font-size: 11px;
+      color: var(--muted);
+      position: relative;
+      z-index: 1;
+    }
+
+    #summaryMetrics, #tableMetrics {
+      margin-top: 8px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .metric-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .metric-row span.label {
+      color: var(--muted);
+    }
+
+    #news-list {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+      z-index: 1;
+      max-height: 210px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .news-item {
+      font-size: 12px;
+      line-height: 1.3;
+      padding: 6px 8px;
+      border-radius: 10px;
+      background: rgba(15,23,42,0.9);
+      border: 1px solid rgba(31,41,55,0.8);
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .news-item:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 18px 40px rgba(15,23,42,0.85);
+      border-color: rgba(56,189,248,0.6);
+    }
+
+    .news-title {
+      color: #e5e7eb;
+      margin-bottom: 2px;
+    }
+
+    .news-meta {
+      color: rgba(148,163,184,0.85);
+      font-size: 11px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.9);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(56,189,248,0.7); }
+      70%  { box-shadow: 0 0 0 16px rgba(56,189,248,0); }
+      100% { box-shadow: 0 0 0 0 rgba(56,189,248,0); }
+    }
+
+    @media (max-width: 900px) {
+      .shell {
+        grid-template-columns: 1fr;
+        grid-template-rows: minmax(320px, 55vh) auto;
+      }
+      #side { border-left: none; border-top: 1px solid #1f2937; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div id="map-holder"></div>
+
+    <aside id="side">
+      <header class="topbar">
+        <div class="left-header">
+          <div class="logo-chip">
+            <!-- your logo file -->
+            <img src="sodaro_logo.png" alt="Sodaro logo" />
+          </div>
+          <div class="brand">
+            <div class="brand-row">
+              <span class="brand-title">Sodaro Crime Intel</span>
+              <span class="brand-pill">US ▸ CA ▸ Alameda ▸ Oakland</span>
+            </div>
+            <div class="crumb" id="crumb">USA</div>
+            <div class="status-line" id="status">
+              View: USA — hover California for CA stats; click California to zoom into Alameda.
+            </div>
+          </div>
+        </div>
+
+        <div class="right-header">
+          <div class="pulse-dot"></div>
+
+          <div class="profile-wrapper">
+            <div class="profile-toggle" id="profile-toggle">
+              <div class="avatar">BS</div>
+              <div class="profile-meta">
+                <span class="profile-name">Bulli Sot</span>
+                <span class="profile-role">Founder · Prototype</span>
+              </div>
+              <span class="caret">▾</span>
+            </div>
+
+            <div class="profile-menu" id="profile-menu">
+              <div class="profile-menu-item">
+                <span class="label">View profile</span>
+                <span class="tag">Ctrl+P</span>
+              </div>
+              <div class="profile-menu-item">
+                <span class="label">Account settings</span>
+                <span class="tag">Soon</span>
+              </div>
+              <div class="profile-menu-divider"></div>
+              <div class="profile-menu-item danger">
+                <span class="label">Sign out</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section class="card">
+        <h2>Risk Snapshot</h2>
+        <small id="snapshotLabel">California 2024 (from CSV)</small>
+        <div id="summaryMetrics"></div>
+      </section>
+
+      <section class="card">
+        <h2>Offense Breakdown</h2>
+        <small id="breakdownLabel">Top offenses by count</small>
+        <div id="tableMetrics"></div>
+      </section>
+
+      <section class="card">
+        <h2>Live Crime Headlines</h2>
+        <small id="news-status">Fetching crime news…</small>
+        <div id="news-list"></div>
+      </section>
+    </aside>
+  </div>
+
+  <!-- Tiny JS for profile dropdown -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const toggle = document.getElementById("profile-toggle");
+      const menu   = document.getElementById("profile-menu");
+
+      document.addEventListener("click", (e) => {
+        if (toggle.contains(e.target)) {
+          menu.classList.toggle("open");
+        } else {
+          menu.classList.remove("open");
+        }
+      });
+    });
+  </script>
+
+  <!-- p5 sketch (unchanged from previous message) -->
+  <script src="sketch_usa_crime.js"></script>
+</body>
+</html>
